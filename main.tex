@@ -1,0 +1,211 @@
+\documentclass[letterpaper]{article}
+\usepackage[letterpaper]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{algpseudocode} 
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{hyperref}
+
+\title{Better Coordinate Descent Using Bandits}
+% \author{ccosgro2 }
+\date{September 2019}
+
+\usepackage{natbib}
+\usepackage{graphicx}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\newcommand{\istar}{i^*}
+\newcommand{\comment}[1]{%
+  \text{\phantom{(#1)}} \tag{#1}
+}
+
+\begin{document}
+
+\maketitle
+
+
+\section{Introduction and related work}
+
+Coordinate descent is a powerful method for optimizing objective functions, especially those with undesirable properties (e.g., nonsmooth regularizers). Because computing a single update to the objective can be done in constant time, coordinate descent methods also hold promise in optimizing high-dimensional problems, where dimension dependence in the iteration complexity is undesirable. However, the method for choosing which coordinate to update strongly affects the convergence rate of CD; an active area of research is how to choose coordinates more intelligently to achieve provable convergence improvements \emph{while} not sacrificing coordinate descent's cheap update rule.
+
+The goal of this project is to improve upon the work of~\cite{salehi2018coordinate}, who introduce a bandit-based coordinate descent algorithm achieving a convergence rate of $t = O(d^2/\epsilon)$. While the dependence on suboptimality is polynomially better than prior work, the dependence on dimension is quadratic in the worst case (nevertheless, the authors argue that in practice, their algorithm is fast and demonstrate this using empirical experiments; this raises the question of whether better bounds can be obtained for their approach). One curious aspect of the analysis of~\cite{salehi2018coordinate} is that they do not use a regret-type bound to to bound their bandit algorithm in terms of their full-information algorithm; rather, they bound their bandit algorithm directly\footnote{They do this while making explicit assumptions about how well their algorithm chooses arms relative to OPT. In particular, they assume that their algorithm chooses an arm with reward at most $c$ times worse than the optimal arm, and they claim that can control this constant by varying the epoch length and exploration parameter $\varepsilon$. However, they provide no analysis into these dependencies, so in this respect their bounds for their bandit algorithm are weak}.
+
+Another work that uses bandits for coordinate descent is~\cite{namkoong2017adaptive}. Unlike~\cite{salehi2018coordinate}, these authors \emph{make use of explicit regret bounds} to get bounds on the performance of their bandit algorithm in terms of the full-information adversary. They use rewards that are proportional to $|\nabla_i f(x)|^2$. These authors give bounds under the assumption of power-law distributed distributed rewards\footnote{In their work, this means that $|\nabla_i f(x)| \leq \beta i^{-\alpha}$ for some $\alpha \in [\epsilon, \infty)$.}. In this setting, the authors report the following iteration complexity:
+\begin{equation}
+    \left(\frac{R}{\epsilon}\right)^2 d^{2-\alpha} + \left(\frac{R}{\epsilon}\right)^\frac{4}{3} d \log^\frac{5}{3} d
+\end{equation}
+in the case where $\alpha \in (1,2)$, and
+\begin{equation}
+    \left(\frac{R}{\epsilon}\right) \log^2 d + \left(\frac{R}{\epsilon}\right)^\frac{4}{3} d \log^\frac{5}{3} d
+\end{equation}
+in the case where $\alpha \geq 2$. Unlike~\cite{salehi2018coordinate}, this work does use a regret-style bound in their analysis and hence \emph{does not} make explicit assumptions about the gap between the bandit algorithm's choices and the optimal (which~\cite{salehi2018coordinate} does through the constant $c(E, \epsilon)$). Although these bounds have worse dependence on $\epsilon$, they are stronger in that they do not make explicit assumptions 
+
+Some questions:
+\begin{itemize}
+    \item As mentioned above, the performance of the bandit algorithm~\cite{salehi2018coordinate} is strongly influenced by the parameter $c$, which is a function of the epoch length $E$ and exploration probability $\varepsilon$. Curiously, the authors find that performance \emph{degrades} when using a $\varepsilon$ probability greater than 0, i.e., \emph{exploration only hurts}. Is there an explanation for this?
+    \item ~\cite{salehi2018coordinate} provide limited computational experiments and do not provide their code. Perhaps we should replicate their empirical results.
+\end{itemize}
+
+
+\section{Problem statement}
+
+\textbf{Problem statement:} Let's assume that we have some good dynamic regret bound on our algorithm:
+
+\begin{equation}
+    \sum_i^T\text{Reward}(ALG_i) - \sum_i^T \text{Reward}(OPT_i) \leq \text{Reg}(V, T)
+    \label{eq:regret}
+\end{equation}
+
+Here, $V$ is the \emph{path-length} of the comparator sequence. Typically, this is defined as
+\begin{equation}
+    V \leq \sum_{t=1}^T |\text{Reward}(OPT_t) - \text{Reward}(OPT_{t-1})|
+\end{equation}
+
+Depending on how we define our rewards (discussed later), this affect the type of bound we can get on $V$.
+
+\section{Naive approach}
+We present a naive approach for deriving convergence rates for a bandit-based coordinate descent algorithm \emph{where the suboptimality (or the objective) is used directly as a reward signal}. This is not practical, since computing the objective is requires $O(d)$ work, which is precisely what we are trying to avoid by using a bandit algorithm.
+
+Let the reward be defined as the change in suboptimality ($\epsilon(\cdot)\equiv f(\cdot) - \inf_x f(x)$) from the beginning:
+
+\begin{equation}
+    \text{Reward}(ALG_i) \equiv R^t_i = \epsilon(x^0) - \epsilon(x^t)
+    \label{eq:naive_reward}
+\end{equation}
+where $x^t$ are chosen by $ALG$ (to denote the iterates of the comparator $OPT$, we use $R^t_{\istar}$ and $x_*^t$).
+Now the regret bound (Eq.~\ref{eq:regret}) becomes:
+\begin{equation}
+    \sum_{t=1}^T R_{i}^t - \sum_{t=1}^T R_{\istar}^t \leq -\text{Reg}(V,T)
+\end{equation}
+Using Eq.~\ref{eq:naive_reward}, we get
+\begin{equation}
+    \sum_{t=1}^T \epsilon(x^t) \leq \sum_{t=1}^T \epsilon(x^t_*) + \text{Reg}(V,T)
+\end{equation}
+We can bound the average suboptimality by dividing both sides by $T$:
+\begin{equation}
+    \frac{1}{T}\sum_{t=1}^T \epsilon(x^t) \leq \frac{1}{T} \sum_{t=1}^T \epsilon (x^T_*) + \frac{\text{Reg}(V,T)}{T}
+\end{equation}
+Now, using the guaranteed descent property (i.e., using the step sizes in the paper can only improve the objective), we know that the suboptimality of the final iterate is smaller than the average
+\begin{equation}
+    \epsilon(x^T) \leq \frac{1}{T}\sum_{t=1}^T \epsilon(x^t) \leq \frac{1}{T} \sum_{t=1}^T \epsilon(x_*^t) + \frac{\text{Reg}(V,T)}{T}
+    \label{eq:naive_average_regret}
+\end{equation}
+
+Now, let's assume we have an optimal convergence rate of the form
+\begin{equation}
+    \epsilon(x^t_*) \leq \frac{C}{t}
+\end{equation}
+Then Eq.~\ref{eq:naive_average_regret} implies
+\begin{equation}
+    \epsilon(x^t) \leq \frac{2C\log t + \text{Reg}(V,T)}{t}
+\end{equation}
+
+What is the form of $\text{Reg}(V,T)$ in this scenario? If we use path-length bounds from~\cite{bubeck2019improved} (corresponding to Algorithm 1), we can get a regret bound of the form
+\begin{equation}
+    \text{Reg}(V, T, d) \leq O\left( \frac{d \log T}{\gamma} + \gamma V\right)
+\end{equation}
+
+for some controllable parameter $\gamma$ (satisfying $\gamma \leq 1/162$).
+
+This leads to a sublinear convergence rate for the bandit-based algorithm
+\begin{equation}
+    \epsilon(x^t) \leq O\left(\frac{C \log t + d \log t / \gamma + \gamma V}{t}\right)
+\end{equation}
+
+In~\cite{salehi2018coordinate}, we have the following bound for the full-information algorithm:
+\begin{equation}
+    \epsilon(x_*^t) \leq \frac{8L^2 \eta^2 / \beta}{2d + t - t_0}
+\end{equation}
+where $\eta$ is an upper bound on the ratio of duality gap to the best coordinate-wise duality gap, i.e. $\min_i G(x^t_*)/G_i(x^t_*)$. In the worst case, $\eta = O(d)$, but the authors argue that a more common case is when $\eta = O(1)$~\cite{salehi2018coordinate}\footnote{\textbf{research question}: when is it the case that $\eta = O(1)$? This is the case when the rewards are power-law distributed, but this is not a standard assumption about objective functions. Can we relate this scenario to a more ``well-known" property of objective functions? (Formalizing this might help us know when using an adaptive or non-uniform sampling algorithm will help coordinate descent converge faster)}.
+
+Thus, in the worst case, this leads our bandit algorithm to have a convergence rate of
+\begin{equation}
+    \epsilon(x^t) \leq \frac{8L^2 \eta^2}{2d+t-t_0} + \frac{d \log t + \gamma^2 V}{\gamma t}
+    \label{eq:naive_convergence_rate}
+\end{equation}
+
+When $t \gg d$ \emph{and} we have good bounds on $V$ (see section~\ref{section:naive_bounding_path_length}), this gives the worst-case $t = \tilde{O}(d^2/\epsilon)$; this, however, is only the case when all coordinates have the same $G_i$'s. In the case where these rewards are power-law distributed (i.e., like the case analyzed in~\cite{namkoong2017adaptive}), we can guarantee that $\eta = O(\log d)$ in the worst case (i.e., the case where the rewards decay like $1/i$) and so we get a nice iteration complexity of $t = \tilde{O}(\log^2(d) / \epsilon)$
+
+\subsection{Bounding the path length in the naive setting}
+\label{section:naive_bounding_path_length}
+In the naive setting (Eq.~\ref{eq:naive_reward}), it is easy to bound the path length of $V$. 
+
+\begin{align}
+    V &= \sum_{t=1}^T |R_{\istar}^t - R_{\istar}^{t-1}| \\
+    &= \sum_{t=1}^T |\epsilon(x^{t-1}_*)-\epsilon(x^t_*)| \\
+    &= \epsilon(x^0_*) - \epsilon(x^T_*)\\
+    &\leq \epsilon(x^0_*)
+\end{align}
+This does not strongly affect Eq.~\ref{eq:naive_convergence_rate}.
+
+\textbf{Note}: If our rewards/losses decrease fast enough, we can get good path-length bounds (and therefore the final path-length term becomes negligible).
+
+\section{Beyond the naive approach}
+In the \emph{naive setting} (where we use the suboptimality -- or equivalently the objective value) as a reward signal
+
+
+% \subsection{Overview of ideas (9/24/19)}
+
+% \cite{salehi2018coordinate} 
+
+% Let
+% \begin{equation}
+%     R_i^t = \sum_{j = 1}^t r_i^j
+% \end{equation}
+
+% Let's assume we have a regret bound of the form
+% \begin{equation}
+%     \sum_{t=1}^T R_i^t - \sum_{t=1}^T R_{\istar}^t \geq -V \log T
+% \end{equation}
+
+% where $V$ is a bound on the path length of the comparator sequence (i.e., the best sequence). In this situation,
+
+% \begin{equation}
+%     V \leq \sum_{t=1}^T |R_{\istar}^t - R_{\istar}^t|.
+% \end{equation}
+
+% Note that we always have 
+% \begin{equation}
+%     R_{\istar}^t \geq R_i^t
+% \end{equation}
+
+% Now, note that $R_i^0 = R_{\istar}^0 = 0$. This, combined with the fact that $R_i^t \leq R_i^{t+1}$ and $R_{\istar}^t \leq R_{\istar}^{t+1}$, allows us to bound the progress term-wise:
+
+% \begin{equation}
+%     R_i^t - R_{\istar}^t \geq -V\left(\log t - \log(t-1)\right)
+% \end{equation}
+
+% which implies that
+
+% \begin{equation}
+%     \epsilon(x^0) - \epsilon(x^t) \geq R_i^t \geq R_{\istar}^t - \frac{2V}{t}
+% \end{equation}
+
+% Now we can use the fact that
+
+% \begin{align}
+%     r_{\istar}^t &\geq G_{\istar}(x^t)/2 \\
+%     &\geq \frac{G(x_t)}{2d} \\
+%     &\geq 
+%     &\geq G_i(x_t)/\eta \comment{assumption in Prop. 2}
+% \end{align}
+
+% This, in turn, implies that
+
+% \begin{equation}
+%     \epsilon(x^t) \leq \frac{1}{\eta + 1}\left[\eta \epsilon(x^0) - \sum_{j=1}^t \epsilon(x^j) + \frac{2 V \eta}{t} \right]
+% \end{equation}
+
+% This is a recurrence relation that we can solve.
+
+% In fact, we can strengthen this result if we use the fact that $R_{\istar}^t \geq R_i^t$ (this follows from the fact that $R_{\istar}^t = \sum_{j=1}^t \argmax_i r_i^j$). This leads to a recurrence that does not even involve $\eta$:
+
+% \begin{equation}
+%     R_i^t \leq \
+% \end{equation}
+
+\bibliographystyle{plain}
+\bibliography{references}
+\end{document}
