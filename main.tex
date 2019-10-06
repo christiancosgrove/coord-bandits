@@ -125,7 +125,7 @@ Thus, in the worst case, this leads our bandit algorithm to have a convergence r
     \label{eq:naive_convergence_rate}
 \end{equation}
 
-When $t \gg d$ \emph{and} we have good bounds on $V$ (see section~\ref{section:naive_bounding_path_length}), this gives the worst-case $t = \tilde{O}(d^2/\epsilon)$; this, however, is only the case when all coordinates have the same $G_i$'s. In the case where these rewards are power-law distributed (i.e., like the case analyzed in~\cite{namkoong2017adaptive}), we can guarantee that $\eta = O(\log d)$ in the worst case (i.e., the case where the rewards decay like $1/i$) and so we get a nice iteration complexity of $t = \tilde{O}(\log^2(d) / \epsilon)$
+When $t \gg d$ \emph{and} we have good bounds on $V$ (see section~\ref{section:naive_bounding_path_length}), this gives the worst-case $t = \tilde{O}(d^2/\epsilon)$; this, however, is only the case when all coordinates have the same $G_i$'s. In the case where these rewards are power-law distributed (i.e., like the case analyzed in~\cite{namkoong2017adaptive}), we can guarantee that $\eta = O(\log d)$ in the worst case (i.e., the case where the rewards decay like $1/i$) and so we get a nice iteration complexity of $t = \tilde{O}(\log^2 d / \epsilon)$
 
 \subsection{Bounding the path length in the naive setting}
 \label{section:naive_bounding_path_length}
@@ -147,16 +147,62 @@ In the \emph{naive setting} (where we use the suboptimality---or equivalently th
 \textbf{A question arises}: can we use the machinery introduced in~\cite{salehi2018coordinate}, coupled with these improved regret bounds from, e.g.,~\cite{bubeck2019improved}, to derive a better bandit-based coordinate descent algorithm? 
 
 Some ideas:
-\begin{itemize}
-    \item Use the same rewards as~\cite{salehi2018coordinate}. This poses a problem is that these rewards are decreasing with $T$, so a regret bound like $O(\log T)$ does not allow for guaranteed convergence of our bandit algorithm.
-    \item Use the same rewards as~\cite{salehi2018coordinate} but rescale them with time; e.g., $\text{Reward} = t\cdot r_i^t$. At first glance, this solves some of the problems with the first case, but this does not work because it `disincentivizes' the bandit algorithm from descending early. In particular, the bandit can achieve a lower regret by choosing bad arms early and good arms later, rather than choosing good arms early and good arms later.
-    \item We can use the sum of the rewards in~\cite{salehi2018coordinate} \emph{as a proxy} for the true suboptimality, in an attempt to replicate the results for the naive case. This approach also has challenges; see section~\ref{section:proxy_rewards}
-\end{itemize}
+\begin{enumerate}
+    \item[(a)] Use the same rewards as~\cite{salehi2018coordinate}. This poses a problem is that these rewards are decreasing with $T$, so a regret bound like $O(\log T)$ does not allow for guaranteed convergence of our bandit algorithm.
+    \item[(b)] Use the same rewards as~\cite{salehi2018coordinate} but rescale them with time; e.g., $\text{Reward} = t\cdot r_i^t$. At first glance, this solves some of the problems with the first case, but this does not work because it `disincentivizes' the bandit algorithm from descending early. In particular, the bandit can achieve a lower regret by choosing bad arms early and good arms later, rather than choosing good arms early and good arms later.
+    \item[(c)] We can use the sum of the rewards in~\cite{salehi2018coordinate} \emph{as a proxy} for the true suboptimality, in an attempt to replicate the results for the naive case. This approach also has challenges; see section~\ref{section:proxy_rewards}
+\end{enumerate}
 
-\section{Proxy rewards}
+\subsection{Reusing rewards from~\cite{salehi2018coordinate}}
+\label{section:reusing_rewards}
+To demonstrate why (a) doesn't work, let's try to use the rewards in~\cite{salehi2018coordinate} as our reward function (for which we can apply regret bounds). First note that the reward $r_i^t$ is an lower bound on the improvement in the objective:
+\begin{align}
+    r_i^t &\leq f(x^{t-1}) - f(x^t) \\
+    &=\epsilon(x^{t-1}) - \epsilon(x^t)
+\end{align}
+
+Now we show how If we use these as our rewards, our regret bound becomes
+\begin{equation}
+    \sum_{t=1}^T r_i^t \leq \sum_{t=1}^T r_{\istar}^t - \text{Reg}(V,T)
+\end{equation}
+Divide through by $T$: 
+\begin{equation}
+    -\frac{1}{T} \sum_{t=1}^T r_i^t \leq -\frac{1}{T}\sum_{t=1}^T r_{\istar}^t + \frac{\text{Reg}(V,T)}{T}
+\end{equation}
+Now, substituting $\epsilon(x^t) - \epsilon(x^{t-1}) \leq -r_i^t$, we have
+\begin{align}
+    \frac{1}{T}\left[\epsilon(x^T) - \epsilon(x^0)\right]&= -\frac{1}{T}\sum_{t=1}^T\left(\epsilon(x^t) - \epsilon(x^{t-1})\right)\\
+    &\leq -\frac{1}{T} \sum_{t=1}^T r_i^t \\
+    &\leq -\frac{1}{T}\sum_{t=1}^T r_{\istar}^t + \frac{\text{Reg}(V,T)}{T}
+\end{align}
+Now, we can use some of the properties of $r_i^t$ as described in~\cite{salehi2018coordinate}. For sake of argument, let's assume we are in case (a) of the proof of Theorem 2, i.e. $s_{\istar}^t = 1$ (see p. 15-16 of~\cite{salehi2018coordinate}). In this situation, we have that
+\begin{align}
+    -r_{\istar}^t &\leq -\frac{G_{\istar}(x^t_*)}{2} \\
+    &\leq -\frac{G(x^t_*)}{2d} \\
+    &\leq -\frac{\epsilon(x^t_*)}{2d}
+\end{align}
+
+Therefore,
+\begin{align}
+    \frac{1}{T}\left[\epsilon(x^T) - \epsilon(x^0)\right] &\leq -\frac{1}{T}\sum_{t=1}^T \epsilon(x^t_*) + \frac{\text{Reg}(V,T)}{T} \\
+\end{align}
+Now we hit a wall, because we defined our rewards according to (a). Note that this will (at best) give us a suboptimality like $\epsilon(x^T) \leq O\left(1 + \text{Reg}(V,T)\right)\equiv O((\log T)$, so our algorithm doesn't even converge. This shows the need to redefine our rewards.
+
+\subsection{Redefining rewards}
 \label{section:proxy_rewards}
-Let's try to use the 
 
+Let's redefine our rewards as follows:
+\begin{equation}
+    R_i^T \equiv \sum_{t=1}^T r_i^t
+\end{equation}
+and
+\begin{equation}
+    R_{\istar}^T \equiv \sum_{t=1}^T r_{\istar}^t
+\end{equation}
+Now our regret bound becomes
+\begin{equation}
+    \sum_{t=1}^T R_i^t -\sum_{t=1}^T R_{\istar}^t \geq -\text{Reg}(V,T)
+\end{equation}
 
 % \subsection{Overview of ideas (9/24/19)}
 
