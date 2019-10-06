@@ -39,12 +39,12 @@ in the case where $\alpha \in (1,2)$, and
 \begin{equation}
     \left(\frac{R}{\epsilon}\right) \log^2 d + \left(\frac{R}{\epsilon}\right)^\frac{4}{3} d \log^\frac{5}{3} d
 \end{equation}
-in the case where $\alpha \geq 2$. Unlike~\cite{salehi2018coordinate}, this work does use a regret-style bound in their analysis and hence \emph{does not} make explicit assumptions about the gap between the bandit algorithm's choices and the optimal (which~\cite{salehi2018coordinate} does through the constant $c(E, \epsilon)$). Although these bounds have worse dependence on $\epsilon$, they are stronger in that they do not make explicit assumptions 
+in the case where $\alpha \geq 2$. Unlike~\cite{salehi2018coordinate}, this work does use a regret-style bound in their analysis and hence \emph{does not} make explicit assumptions about the gap between the bandit algorithm's choices and the optimal (which~\cite{salehi2018coordinate} does through the constant $c(E, \epsilon)$). Although these bounds have worse dependence on $\epsilon$, they are stronger in that they do not make explicit assumptions about the performance of the bandit's choices.
 
 Some questions:
 \begin{itemize}
     \item As mentioned above, the performance of the bandit algorithm~\cite{salehi2018coordinate} is strongly influenced by the parameter $c$, which is a function of the epoch length $E$ and exploration probability $\varepsilon$. Curiously, the authors find that performance \emph{degrades} when using a $\varepsilon$ probability greater than 0, i.e., \emph{exploration only hurts}. Is there an explanation for this?
-    \item ~\cite{salehi2018coordinate} provide limited computational experiments and do not provide their code. Perhaps we should replicate their empirical results.
+    \item ~\cite{salehi2018coordinate} provide limited computational experiments and do not provide their code. Perhaps we should replicate their empirical results. This might give more insight into the behavior of $c(E, \epsilon)$.
 \end{itemize}
 
 
@@ -180,13 +180,14 @@ Now, we can use some of the properties of $r_i^t$ as described in~\cite{salehi20
     -r_{\istar}^t &\leq -\frac{G_{\istar}(x^t_*)}{2} \\
     &\leq -\frac{G(x^t_*)}{2d} \\
     &\leq -\frac{\epsilon(x^t_*)}{2d}
+    \label{eq:reward_subgap}
 \end{align}
 
 Therefore,
 \begin{align}
     \frac{1}{T}\left[\epsilon(x^T) - \epsilon(x^0)\right] &\leq -\frac{1}{T}\sum_{t=1}^T \epsilon(x^t_*) + \frac{\text{Reg}(V,T)}{T} \\
 \end{align}
-Now we hit a wall, because we defined our rewards according to (a). Note that this will (at best) give us a suboptimality like $\epsilon(x^T) \leq O\left(1 + \text{Reg}(V,T)\right)\equiv O((\log T)$, so our algorithm doesn't even converge. This shows the need to redefine our rewards.
+Now we hit a wall, because we defined our rewards according to (a). Note that this will (at best) give us a suboptimality like $\epsilon(x^T) \leq O\left(1 + \text{Reg}(V,T)\right)\equiv O(\log T)$, so our algorithm doesn't even converge. This shows the need to redefine our rewards.
 
 \subsection{Redefining rewards}
 \label{section:proxy_rewards}
@@ -199,11 +200,26 @@ and
 \begin{equation}
     R_{\istar}^T \equiv \sum_{t=1}^T r_{\istar}^t
 \end{equation}
-Now our regret bound becomes
+Note that this is a lower bound on the net improvement in objective, i.e., $\epsilon(x^t) - \epsilon(x^0) \leq -R_i^t$. Now our regret bound becomes
 \begin{equation}
     \sum_{t=1}^T R_i^t -\sum_{t=1}^T R_{\istar}^t \geq -\text{Reg}(V,T)
 \end{equation}
+Rearranging terms and dividing by $T$, we get
+\begin{align}
+    \frac{1}{T}\sum_{t=1}^T \epsilon(x^t) - \epsilon(x^0) &\leq -\sum_{t=1}^T R_i^t \\
+    &\leq -\sum_{t=1}^T R_{\istar}^t + \text{Reg}(V,T)\\
+    &= -\sum_{t=1}^T \sum_{s=1}^t r_{\istar}^s + \text{Reg}(V,T)
+\end{align}
+Recalling that the bandit algorithm is guaranteed to improve the objective (i.e., $\epsilon(x^{t+1}) \leq \epsilon(x^t)$), we know that the suboptimality of the final iterate is less than the average (i.e. $\epsilon(x^T) \leq \frac{1}{T} \sum_{t=1}^T \epsilon(x^t)$), so we get that
+\begin{equation}
+    \epsilon(x^T) \leq \epsilon(x^0) -\sum_{t=1}^T \sum_{s=1}^t r_{\istar}^s + \text{Reg}(V,T)
+\end{equation}
+Now we use the relations from Eq.~\ref{eq:reward_subgap}:
+\begin{align}
+    \epsilon(x^T) \leq \epsilon(x^0) - \frac{1}{T}\sum_{t=1}^T \sum_{s=1}^t \frac{\epsilon(x^t_*)}{2d} + \frac{\text{Reg(V,T)}}{T}
+\end{align}
 
+\textbf{As of 10/5/19, this is where I'm stuck. I've thought about possibly using a lower bound on $\epsilon(x_*^t)$ here in order to cancel out the first term $\epsilon(x^0)$.}
 % \subsection{Overview of ideas (9/24/19)}
 
 % \cite{salehi2018coordinate} 
