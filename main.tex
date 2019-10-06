@@ -7,7 +7,7 @@
 \usepackage{amssymb}
 \usepackage{hyperref}
 
-\title{Better Coordinate Descent Using Bandits}
+\title{Towards Better Coordinate Descent Using Bandits}
 % \author{ccosgro2 }
 \date{September 2019}
 
@@ -143,7 +143,9 @@ This does not strongly affect Eq.~\ref{eq:naive_convergence_rate}.
 \textbf{Note}: If our rewards/losses decrease fast enough, we can get good path-length bounds (and therefore the final path-length term becomes negligible).
 
 \section{Beyond the naive approach}
-In the \emph{naive setting} (where we use the suboptimality -- or equivalently the objective value) as a reward signal
+In the \emph{naive setting} (where we use the suboptimality---or equivalently the objective value---as a reward signal), we can derive meaningful convergence rates using regret bounds (Eq.~\ref{eq:naive_convergence_rate}). However, in order to obtain these regret bounds, we need to compute the reward from pulling a particular arm; this requires us to recompute the suboptimality/objective value on each iteration. Computing this requires $O(d)$ work, so this diminishes the utility of the naive approach.
+
+\textbf{A question arises}: can we use the machinery introduced in~\cite{salehi2018coordinate}, coupled with these improved regret bounds from, e.g.,~\cite{bubeck2019improved}, to derive a better bandit-based coordinate descent algorithm? 
 
 
 % \subsection{Overview of ideas (9/24/19)}
@@ -205,6 +207,7 @@ In the \emph{naive setting} (where we use the suboptimality -- or equivalently t
 % \begin{equation}
 %     R_i^t \leq \
 % \end{equation}
+
 
 \bibliographystyle{plain}
 \bibliography{references}
