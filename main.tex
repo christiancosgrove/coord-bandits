@@ -6,6 +6,7 @@
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage{hyperref}
+\usepackage{mathtools}
 
 \title{Towards Better Coordinate Descent Using Bandits}
 \date{September 2019}
@@ -14,6 +15,9 @@
 \usepackage{graphicx}
 \DeclareMathOperator*{\argmax}{arg\,max}
 \DeclareMathOperator*{\argmin}{arg\,min}
+
+\DeclarePairedDelimiter\ceil{\lceil}{\rceil}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
 
 \newcommand{\istar}{i^*}
 \newcommand{\comment}[1]{%
@@ -216,10 +220,263 @@ Recalling that the bandit algorithm is guaranteed to improve the objective (i.e.
 \end{equation}
 Now we use the relations from Eq.~\ref{eq:reward_subgap}:
 \begin{align}
-    \epsilon(x^T) \leq \epsilon(x^0) - \frac{1}{T}\sum_{t=1}^T \sum_{s=1}^t \frac{\epsilon(x^t_*)}{2d} + \frac{\text{Reg(V,T)}}{T}
+    \epsilon(x^T) &\leq \epsilon(x^0) - \frac{1}{T}\sum_{t=1}^T \sum_{s=1}^t \frac{\epsilon(x^t_*)}{2d} + \frac{\text{Reg(V,T)}}{T} \\
+    % &\leq \epsilon(x^0) - \frac{1}{T}\sum_{t=1}^T \sum_{s=1}^t \frac{\epsilon(x^t_*)}{2d} + \frac{\text{Reg(V,T)}}{T}
+\end{align}
+Divide through both sides by $\epsilon(x^T)$
+
+\begin{align}
+    1&\leq \frac{\epsilon(x^0) + \frac{\text{Reg(V,T)}}{T}}{\epsilon(x^T)} - \frac{1}{T}\sum_{t=1}^T \sum_{s=1}^t \frac{\epsilon(x^t_*)}{2d\epsilon(x^T)} \\
+\end{align}
+Rearranging
+
+\begin{align}
+    \frac{\epsilon(x^0) + \frac{\text{Reg(V,T)}}{T}}{\epsilon(x^T)} &\geq 1 + \frac{1}{T}\sum_{t=1}^T \sum_{s=1}^t \frac{\epsilon(x^t_*)}{2d\epsilon(x^T)}\\
+    &\geq 1 + \frac{1}{T}\sum_{t=1}^T \sum_{s=1}^t \frac{\epsilon(x^t_*)}{2d\epsilon(x^{t_0})}
+    \label{eq:t0}
+\end{align}
+where we have assumed that $T > t_0$, and hence $\epsilon(x^{t_0}) \geq \epsilon(x^{T})$. Using Eq. (35) from~\cite{salehi2018coordinate}, i.e.,
+\footnote{this equation only holds for max\_r, i.e., the full information greedy algorithm. To ensure that this holds for our bandit algorithm, we run $t_0 = \max(1, 2d \log(\frac{d \beta \epsilon(x^0)}{4L^2 \eta^2}))$ iterations of greedy before starting our bandit algorithm}
+\begin{equation}
+    \epsilon(x^{t_0}) \leq \frac{4L^2 \eta^2}{\beta d}
+\end{equation}
+So \ref{eq:t0} becomes
+
+\begin{align}
+    \frac{\epsilon(x^0) + \frac{\text{Reg(V,T)}}{T}}{\epsilon(x^T)} &\geq 1 + \frac{\beta}{8L^2 \eta^2 T}\sum_{t=1}^T \sum_{s=1}^t \epsilon(x^t_*)
+    \label{eq:t0}
 \end{align}
 
-\textbf{As of 10/5/19, this is where I'm stuck. I've thought about possibly using a lower bound on $\epsilon(x_*^t)$ here in order to cancel out the first term $\epsilon(x^0)$.}
+% \textbf{As of 10/5/19, this is where I'm stuck. I've thought about possibly using a lower bound on $\epsilon(x_*^t)$ here in order to cancel out the first term $\epsilon(x^0)$.}
+
+\section{A new definition for rewards}
+\label{sec:new_definition_for_rewards}
+Teodor suggested a new way to define rewards that makes the analysis more amenable to using a bandit regret bound. 
+
+The idea is to treat the ratio $\eta_t = G(x^t_*) ||a_i|| / G_i(x^t_*)$ as a reward that can vary based on which arm is pulled.
+
+Let's show how this idea can be applied. For simplicity, let's consider the case where $s_i^t < 1$. Start with equation (32) in~\cite{salehi2018coordinate}:
+
+\begin{align}
+    r_{\istar}^t &\geq \frac{G_{\istar}^2 (x^t_*) \beta}{8L^2 ||a_i||^2} \\
+    &= \frac{G(x^t) \beta}{8L^2 \eta_t^2}
+\end{align}
+
+Using the descent property of $r_i^t$, this yields:
+\begin{align}
+    \epsilon(x^{t+1}) - \epsilon(x^t) \leq -r_{\istar}^t \leq -\frac{\epsilon(x^t)\beta}{8L^2 \eta_t^2}
+\end{align}
+
+From this point on,~\cite{salehi2018coordinate} use induction to prove their bound. However, we appeal to the standard analysis for GD on smooth objectives:
+
+\begin{align}
+    \epsilon(x^{t+1}) &\leq \epsilon(x^t) \left(1 - \frac{\epsilon(x^t) \beta}{8L^2 \eta_t^2}\right) \\ 
+    \frac{1}{\epsilon(x^t)} &\leq \frac{1}{\epsilon(x^{t+1})} - \frac{\beta}{8L^2 \eta_t^2} \comment{divide both sides by $\epsilon(x^t)\epsilon(x^{t+1}$)}
+\end{align}
+
+Telescoping the sum, we get:
+\begin{align}
+    \frac{1}{\epsilon(x^t)} \geq \frac{1}{\epsilon(x^0)} + \frac{\beta}{8L^2} \sum_{i=1}^t \frac{1}{\eta_i^2}
+\end{align}
+
+So
+\begin{align}
+    \epsilon(x^t_*) \leq \frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta}{8L^2} \sum_{i=1}^t \frac{1}{\eta_i^2}}
+\end{align}
+
+Notice that the quantity in the denominator $\sum_{i=1}^t 1/\eta_i^2$ is the sum of the rewards (for a suitable definition of reward $1/\eta_t^2$), and so a regret bound can be applied to it:
+
+\begin{equation}
+    \epsilon(x^t) \leq \frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta}{8L^2} \sum_{i=1}^t \frac{1}{\eta_i^2} - \text{Reg}(V,T)}
+\end{equation}
+
+Since the best sequence under this model of rewards is that which choses $i = \argmin \eta_{t,i}$, if we use the original assumption from the paper we have that $\eta_{t,i} \leq \eta$, implying that
+
+\begin{equation}
+    \epsilon(x^t) \leq \frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta T}{8L^2 \eta^2} - \text{Reg}(V,T)}
+\end{equation}
+
+\subsection{Computing these rewards}
+
+One problem with this new definition for rewards is computational intractibility. Computing $\eta_t = G(x^t) ||a_i||/G_i(x^t) = \frac{||a_i||}{G_i(x^t)} \sum_{i=1}^d G_i(x^t)$ requires summing over $d$ coordinates, which is too much work. As discussed already, we would like to compute rewards in $O(1)$ time.
+
+One way to deal with this is to \emph{amortize} the cost of computing $G$ over multiple iterations, and substitute $G(x^t)$ with some estimator of it. 
+Suppose we compute $\hat{G}(x^t) = G(x^{E\floor{t/E}})$, where $E$ is a parameter called the \emph{epoch length}. If $E = \Omega(d)$, then computing $\hat{G}(x^t)$ requires only $O(1)$ amortized time.
+
+
+What is the relationship between the estimator $\hat{G}(x^t)$ and the true duality gap $G(x^t)$? Since our algorithm always improves $G$, we know that $\hat{G}(x^t) \geq G(x^t)$. Moreover, let's assume that over an epoch length the duality gap does not decrease by more than a factor of $c$, i.e., $G(x^{t}) \leq c G(x^{t+E})$. 
+So we have the following relationship:
+\begin{equation}
+    G(x^t) \leq \hat{G}(x^t) \leq c G(x^t)
+\end{equation}
+Now we can redefine our rewards yet again:
+\begin{equation}
+\hat{\eta}_t = \frac{\hat{G}(x^t) ||a_i||}{G_i(x^t)} \geq \eta_t
+\end{equation}
+This gives
+\begin{align}
+    \epsilon(x^t_*) &\leq \frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta}{8L^2} \sum_{i=1}^t \frac{1}{\eta_i^2}} \\
+    &\leq \frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta}{8L^2} \sum_{i=1}^t \frac{1}{\hat{\eta}_i^2}}
+    % &\leq \frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta}{8L^2} \sum_{i=1}^t \frac{1}{\hat{\eta}_i^2} - \text{Reg}(V,T)}
+\end{align}
+so the bandit suboptimality is 
+
+\begin{align}
+    \epsilon(x^t) &\leq\frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta}{8L^2} \left[\sum_{i=1}^t \frac{1}{\hat{\eta}_i^2} - \text{Reg}(V,T)\right]}
+    % &\leq \frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta}{8L^2} \sum_{i=1}^t \frac{1}{\hat{\eta}_i^2} - \text{Reg}(V,T)}
+\end{align}
+where this regret is defined for the rounded rewards $1/\hat{\eta_t}^2$.
+
+
+Since $\hat{\eta}_t \leq c\eta$, this leads to the bound
+\begin{align}
+    \epsilon(x^t) &\leq\frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta T}{8c^2 \eta^2 L^2} - \frac{\beta}{8 L^2} \text{Reg}(V,T)}    
+    \label{eq:suboptimality_with_regret}
+\end{align}
+
+The constant $c$ can be viewed as analogous to the constant $c$ that appears in ~\cite{salehi2018coordinate}. However, here $c$ has a more clear interpretation: it bounds the change in objective over $E$ iterations.
+
+\subsection{An example objective}
+Let's consider a simple toy example to see how our bandit algorithm performs. Suppose we have a smooth objective function of the form
+\begin{equation}
+    F(x) = f(Ax) + \lambda_1 x_1^2 + \cdots + \lambda_d x_d^2
+\end{equation}
+where $\lambda_1 \gg \lambda_2 = \cdots = \lambda_d$. As shown in Lemma 2 of~\cite{salehi2018coordinate}, the update rule for this objective is
+\begin{align*}
+    \kappa_i &= -\frac{\nabla_i F(x)}{2\lambda_i} \\ 
+    s_i &= \min\left\{1, \frac{3\lambda_i}{2\lambda_i + \frac{1}{\beta}}\right\} \\
+    r_i &= \begin{cases}
+        \frac{(\nabla_i F(x))^2}{8\lambda_i^2 \beta}(2\lambda_i \beta - 1) & \text{if }\lambda_i \geq 1/\beta \\
+        \frac{3}{4}\frac{(\nabla_i F(x))^2}{2\lambda_i + \frac{1}{\beta}} & \text{otherwise} \\
+    \end{cases}
+\end{align*}
+Assuming some random initialization and large enough $\lambda_1$, the best coordinate to pull is always $x_1$ in this situation. This is because the first condition in $r_i$ will be satisfied, and $r_i$ will have a linear dependence on $\lambda_i$. max\_r will discover this coordinate immediately, and our algorithm will also discover this coordiante on the first iteration (since it will compute the full $G = \sum_i G_i$).
+
+So in this trivial example, our algorithm discovers the optimal coordinate.
+
+\subsection{Another bound on the estimator}
+Another way to understand the constant $c$ is in terms of the relationship between coordinates. Define the \emph{correspondence} between coordinates $i$ and $j$ in terms of the following bound:
+\begin{equation}
+    C_{ji}^t \equiv \frac{\frac{G_j^2(x^t) ||a_j||^2}{G^2(x^t)} - \frac{G_j^2(x^t + s_i^t \kappa_i^t e_i) ||a_j||^2}{G^2(x^t + s_i^t \kappa_i^t e_i)}}{\frac{G_j^2(x^t) ||a_i||^2}{G^2(x^t)}}
+\end{equation}
+i.e., the reward of pulling arm $j$ before pulling arm $i$ minus the reward of pulling arm $j$ after pulling arm $i$, normalized by the reward of pulling arm $j$.
+
+Let's assume that we have an upper bound of the form
+\begin{equation}
+C_{ij}^t \leq \gamma \;\;\forall i, j \in [d], \forall t
+\end{equation}
+Let's assume that we update our estimate of the sum of the duality gaps for each coordinate, like in the bandit algorithm presented in~\cite{salehi2018coordinate}. Then we know that $c \leq (1-\gamma)^E$.
+
+\subsection{Bounding the estimator directly}
+The fact that the duality gap doesn't change too much is actually a direct consequence of the smoothness and Lipschitzness of the objective. Consider the definition of the coordinate-wise duality gap in the paper:
+\begin{equation}
+    G_i(x) = g_i^*(-a_i^T w) + g_i(x_i) + x_i a_i^T w
+\end{equation}
+Since each $g_i$ has $L_i$-bounded support, each $g_i^*$ is $L_i$-Lipschitz. Furthermore, we know that $f$ is $1/\beta$ smooth, implying that the gradient $\nabla f = w$ is $1/\beta$-Lipschitz. Let's assume our regularizer is $\lambda$-Lipschitz. So altogether the above function has a coordinate-wise Lipschitz constant of 
+\begin{equation}
+    \max\left(\frac{L_i||a_i||}{\beta},\lambda,\frac{||a_i||}{\beta}\right)\equiv c_i
+\end{equation}
+This implies that
+\begin{align}
+    G_i(x_i^t) - G_i(x_i^{t+1}) &\leq c |x_i^{t+1}-x_i^t| \\ 
+    &= c_i s_i \kappa_i
+\end{align}
+Now we can bound the change total duality gap
+\begin{equation}
+    G(x^t) - G(x^{t+1}) \leq s_i \kappa_i \max_j c_j
+    \label{eq:bounding_duality_gap}
+\end{equation}
+Suppose we are in the case where $s_i < 1$. Then we have that
+\begin{equation}
+s_i = \frac{G_i^t + \mu_i |\kappa_i|^2/2}{|\kappa_i^t|^2 (\mu_i + ||a_i||^2/\beta)}
+\end{equation}
+Since we are studying non-strongly convex problems, $\mu_i=0$. From Eq.~\ref{eq:bounding_duality_gap} we have
+\begin{align}
+    G(x_i^t) - G(x_i^{t+1}) &\leq G_i^t\left(\frac{\beta}{|\kappa_i^t|||a_i||^2}\right)
+\end{align}
+
+
+\section{Regret analysis: Commutative rewards?}
+One problem with the analysis in Section~\ref{section:naive_bounding_path_length} is that we use \emph{dynamic regret}. This describes a setting where the adversary can decide a set of loss values at each time step, where loss values \emph{do not depend on prior actions}. However, in this setting, we are clearly dealing with a \emph{policy regret} problem, where reward values depend not only on the current action but the entire sequence of preceding actions. 
+
+The paper~\cite{heidari2016tight_policy_regret} discusses (asymtotically) tight policy regret algorithms for bandits where the rewards decay or increase as a function of the number of pulls of the arm. In this setting, the reward function depends only on the \emph{number of times} the arm is pulled, not the order in which the arms are pulled. 
+In particular, they discuss a setting where the reward obtained from pulling arm $k$ is given by a function $f_k(t_k)$, where $t_k$ is the number of times we have pulled arm $k$. They provide asymptotically tight bounds for the case where the $f_k$'s are monotonically increasing, bounded, and concave (and also monotonically decreasing and bounded).
+
+The problem with this setting is that it is too restrictive for our problem: the reward obtained by choosing coordinate $k$ depends not only on the number of times we have chosen that coordinate, but also the number of times we have chosen all other coordinates. However, there are some nice ideas here, which we might be able to exploit.
+
+In particular, let's assume that (for whatever reward function we decide upon), it satisfies a \emph{commutative property}. In particular, this means that the reward function is independent of the order in which we choose coordinates. (For certain update rules and objective functions, this might not be the case, but it might be approximately true.\footnote{\textbf{Research question}: under what scenarios (objective functions/update rules) are coordinate updates exactly commutative? Are coordinate descent updates ever exactly commmutative?}). Let's assume we have the reward function defined as follows:
+\begin{equation}
+    f(n_1, n_2, \ldots, n_d)
+\end{equation}\
+This is the reward obtained from pulling arm (coordinate) 1 $n_1$ times, 2 $n_2$ times, $d$ $n_d$ times, etc. Notice that this definition naturally satisfies our assumption of commutativity.
+
+Depending on how we define our rewards, they might decrease or increase. For sake of argument, suppose our rewards are \emph{increasing} (which, e.g., might come from definining the reward as the sum of $r_i$'s). In particular, we have
+\begin{equation}
+    f(n_1, n_2, \ldots, n_i + 1, \ldots, n_d) \geq f(n_1, n_2, \ldots, n_i, \ldots, n_d)
+\end{equation}
+Let's also assume that the rewards are concave (i.e., we have diminishing returns on pulling an arm):
+\begin{align}
+    f(n_1, n_2, \ldots, n_i + 1, \ldots, n_d) -f(n_1, n_2, \ldots, n_i, \ldots, n_d) \leq \\
+    f(n_1, n_2, \ldots, n_i, \ldots, n_d) -f(n_1, n_2, \ldots, n_i-1, \ldots, n_d)
+\end{align}
+
+Now we generalize the Algorithm 1 from~\cite{heidari2016tight_policy_regret}. This algorithm relies on an \emph{optimistic estimate} and a \emph{pessimistic estimate} for each arm. When the optimistic estimate for some arm $i$ is less than the pessimistic estimate for some other arm $j$, we can eliminate that arm from our consideration (since we are guaranteed to get a better cumulative reward by simply pulling arm $j$).
+
+Under assumption of increasing rewards, the pessimistic estimate for arm $i$ is similar to before:
+\begin{equation}
+    q_i^t(T) = f(n_1, n_2, \ldots, n_i, \ldots, n_d) * (T - t)
+\end{equation}
+The optimistic estimate is a little bit harder. Using concavity, we know that 
+\begin{align}
+    f(n_1, \ldots, n_i + t, \ldots, n_d) \leq \\t \left[f(n_1,\ldots n_i,\ldots, n_d) - f(n_1,\ldots, n_i-1,\ldots, n_d)\right] + f(n_1,\ldots,n_i,\ldots,n_d)
+\end{align}
+
+However, we also want to include the possibility of playing some other arms, then playing arm $i$. So we can factor in the optimistic estimate from playing arm $j$ first, obtaining
+\begin{align}
+    f(n_1, \ldots, n_i + t, \ldots, n_j+s, \ldots, n_d) \leq \\t \left[f(n_1,\ldots n_i,\ldots, n_d) - f(n_1,\ldots, n_i-1,\ldots, n_d)\right]
+     + f(n_1,\ldots,n_i,\ldots,n_d) \\
+     + \text{optimistic estimate for arm $j$}
+\end{align}
+
+Hence, if we want to bound the total reward we can obtain from arm $i$ over a horizon $T$, we can obtain the following optimsitic estimate:
+\begin{align}
+    p_i^t(T) = \max_j p_j^{t-1}(T) + \sum_{k=1}^{T-t} k \left[f(n_1,\ldots n_i,\ldots, n_d) - f(n_1,\ldots, n_i-1,\ldots, n_d)\right] \\+ (T-t) f(n_1,\ldots, n_i,\ldots, n_d)
+\end{align}
+
+Substituting these new definitions for $p$ and $q$ leads to a bandit algorithm for this setting. \textbf{Unanswered questions:}
+\begin{enumerate}
+\item Does this have sublinear policy regret? (To get sublinear policy regret, we definitely also need to assume that $f(\cdot) \in [0,1]$, as in~\cite{heidari2016tight_policy_regret})
+\item If this algorithm \emph{does not have} sublinear policy regret, it is still possible to get useful bounds if the policy regret is linear with a good coefficient (notice that Eq.~\ref{eq:suboptimality_with_regret} has a regret term in the denominator).
+\item How could the algorithm be modified for better performance? The algorithm in~\cite{heidari2016tight_policy_regret} does not do any tricks to bias towards better arms that have not yet been eliminated; could some improvements be made?
+\item Is the commutativity assumption valid? (From some preliminary computational experiments with $\ell_1$-regularized logistic regression (FISTA), permuting the order of updates does seem to lead to different loss values; however, random permutations seem to \emph{approximately} preserve the loss value--is \emph{approximate} commutativity enough?). 
+\item Maybe this direction isn't valid? Perhaps it would be better to combine policy regret with dynamic regret?
+\item Increasing reward functions for the rewards defined in Section~\ref{sec:new_definition_for_rewards}: Can we redefine rewards to be increasing in this setting? My guess is yes: we can get the bound
+
+\begin{align}
+    \epsilon(x^T) &\leq \frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta}{8TL^2} \sum_{t=1}^T\sum_{s=1}^t \frac{1}{\hat{\eta}_s^2}}
+    % &\leq \frac{1}{\frac{1}{\epsilon(x^0)}  + \frac{\beta}{8L^2} \sum_{i=1}^t \frac{1}{\hat{\eta}_i^2} - \text{Reg}(V,T)}
+\end{align}
+
+where the new reward becomes the sum of the previous rewards, i.e., $\sum_{s=1}^t \frac{1}{\hat{\eta}_s^2}$. This new definition of rewards is monotonically increasing and concave. (Not sure if commutative, though).
+\end{enumerate}
+
+\subsection{Computational experiments}
+
+I implemented some of the methods above, including:
+\begin{itemize}
+\item max\_r - select the coordinate with the largest $r_i$ according to the rewards in~\cite{salehi2018coordinate}
+\item B\_max\_r - select the coordinate with the largest $r_i$ according the last observed reward. Every $E$ epochs, recompute all rewards. In addition, select a random arm with probability $\varepsilon$.
+\item max\_eta - select the coordinate with the largest $\eta\equiv G_i/G$.
+\item B\_max\_eta - use the same policy as B\_max\_r except use the reward $G_i$ rather than $r_i$.
+\item B\_max\_eta - use the same policy as B\_max\_r except use the reward $G_i/G$ rather than $r_i$.
+\end{itemize}
+
+\begin{figure}[htp]
+    \centering
+    \includegraphics[width=\linewidth]{comparison_policies.pdf}
+    \caption{A comparison of the different coordinate descent policies on a logistic regression problem, aloi.}
+\end{figure}
+
 % \subsection{Overview of ideas (9/24/19)}
 
 % \cite{salehi2018coordinate} 
